@@ -1,0 +1,5 @@
+.vs
+KinectDepthMatrix/obj/*
+!KinectDepthMatrix/obj/.gitkeep
+KinectDepthMatrix/bin/*
+!KinectDepthMatrix/bin/.gitkeep
