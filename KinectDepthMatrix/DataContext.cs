@@ -420,6 +420,14 @@ namespace KinectDepthMatrix
             }
         }
 
+        public int Difference
+        {
+            get
+            {
+                return Diff;
+            }
+        }
+
         public Area(Point p1, Point p2)
         {
             this.p1 = p1;
@@ -452,26 +460,51 @@ namespace KinectDepthMatrix
 
         public void StopCollect()
         {
-            int diff = totalDepth - normalValue;
-            Direction dir = Direction.AWAY;
+            // collection stoped so set current value
+            OnPropertyChanged("CurrentValue");
 
+            // calculate diff
+            int diff = totalDepth - normalValue;
+
+            // adjust normal value
             normalValue += (int)Math.Floor(diff / 100f * adjustmentRate);
+            OnPropertyChanged("NormalValue");
+
+            // see direction and normalize diff to be positive
+            Direction dir = Direction.AWAY;
             if (diff < 0)
             {
                 dir = Direction.CLOSER;
                 diff = -diff;
             }
+            // normalize diff by threshold modulation
+            diff = NormalizeDiff(diff);
 
+            if (diff == 0)
+            {
+                Diff = 0;
+                OnPropertyChanged("Difference");
+                direction = Direction.NOTHING;
+                return;
+            }
+            
             Diff = diff;
+            OnPropertyChanged("Difference");
             direction = dir;
+        }
 
-            OnPropertyChanged("NormalValue");
-            OnPropertyChanged("CurrentValue");
+        private int NormalizeDiff(int diff)
+        {
+            if (diff < Threshold)
+            {
+                return 0;
+            }
+            return diff / Threshold;
         }
     }
 
     public enum Direction
     {
-        CLOSER, AWAY
+        CLOSER, AWAY, NOTHING
     }
 }

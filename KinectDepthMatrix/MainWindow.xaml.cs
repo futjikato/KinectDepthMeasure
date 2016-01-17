@@ -68,9 +68,15 @@ namespace KinectDepthMatrix
 
         private void AddAreaClick(object sender, RoutedEventArgs e)
         {
-            Area newArea = new Area(new Point(10, 10), new Point(30, 30));
+            Area newArea = new Area(new Point(0, 0), new Point(320, 240));
             newArea.AttachBuilder(imageBuilder);
             KinectDataContext.Instance.AddArea(newArea);
+        }
+
+        private void DeleteAreasClick(object sender, RoutedEventArgs e)
+        {
+            KinectDataContext.Instance.AreaList.Clear();
+            KinectDataContext.Instance.OnPropertyChanged("AreaList");
         }
 
         private void OnWindowClose(object sender, System.ComponentModel.CancelEventArgs e)
@@ -100,11 +106,6 @@ namespace KinectDepthMatrix
                     KinectDataContext.Instance.StatusMessage = "No depth frame received";
                 }
             }
-        }
-
-        private void DeleteFilter(object sender, RoutedEventArgs e)
-        {
-            imageBuilder.ResetFilter();
         }
 
         private void FilterSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -159,40 +160,30 @@ namespace KinectDepthMatrix
 
             foreach (Area a in KinectDataContext.Instance.AreaList)
             {
-                if (a.Diff > a.Threshold)
+                if (a.direction == Direction.NOTHING)
                 {
-                    int fanPercentage = (int)Math.Ceiling(100f / a.MaxFanDiff * a.Diff);
-                    if (fanPercentage > 100)
-                        fanPercentage = 100;
-                    if (fanPercentage < 0)
-                        fanPercentage = 0;
+                    udpSender.Reset(a.ForwardFan);
+                    udpSender.Reset(a.BackwardFan);
+                    return;
+                }
+                
+                int fanPercentage = (int)Math.Ceiling(100f / a.MaxFanDiff * a.Diff);
+                if (fanPercentage > 100)
+                    fanPercentage = 100;
+                if (fanPercentage < 0)
+                    fanPercentage = 0;
 
-                    byte power = (byte)(255f / 100 * fanPercentage);
+                byte power = (byte)(255f / 100 * fanPercentage);
 
-                    if (a.direction == Direction.CLOSER)
-                    {
-                        if (a.ForwardFan > 0)
-                            udpSender.SendUpdate(a.ForwardFan, power);
-
-                        if (a.BackwardFan > 0)
-                            udpSender.SendUpdate(a.BackwardFan, 0);
-                    }
-                    else
-                    {
-                        if (a.ForwardFan > 0)
-                            udpSender.SendUpdate(a.ForwardFan, 0);
-
-                        if (a.BackwardFan > 0)
-                            udpSender.SendUpdate(a.BackwardFan, power);
-                    }
+                if (a.direction == Direction.CLOSER)
+                {
+                    udpSender.SendUpdate(a.ForwardFan, power);
+                    udpSender.SendUpdate(a.BackwardFan, 0);
                 }
                 else
                 {
-                    if (a.ForwardFan > 0)
-                        udpSender.SendUpdate(a.ForwardFan, 0);
-
-                    if (a.BackwardFan > 0)
-                        udpSender.SendUpdate(a.BackwardFan, 0);
+                    udpSender.SendUpdate(a.ForwardFan, 0);
+                    udpSender.SendUpdate(a.BackwardFan, power);
                 }
             }
         }

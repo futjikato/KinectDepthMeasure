@@ -1,11 +1,7 @@
 ﻿using Microsoft.Kinect;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -16,7 +12,7 @@ namespace KinectDepthMatrix
 {
     public class ImageBuilder
     {
-        private List<Area> filterList;
+        private BlockingCollection<Area> filterList;
 
         private bool busyUpdate = false;
 
@@ -30,7 +26,7 @@ namespace KinectDepthMatrix
         {
             this.width = width;
             this.height = height;
-            filterList = new List<Area>();
+            filterList = new BlockingCollection<Area>();
             renderMatrix = new Area[width * height];
         }
 
@@ -44,15 +40,18 @@ namespace KinectDepthMatrix
             img.Lock();
             int pBackBuffer = (int)img.BackBuffer;
             int backBufferStride = img.BackBufferStride;
-            
-            foreach (Area a in filterList)
+
+            List<Area> tmpFilterList = new List<Area>();
+            tmpFilterList.AddRange(filterList);
+
+            foreach (Area a in tmpFilterList)
             {
                 if (a != null)
                 {
                     a.StartCollect();
                 }
             }
-
+            
             unsafe
             {
                 for (int i = 0; i < depthPixels.Length; i++)
@@ -81,7 +80,7 @@ namespace KinectDepthMatrix
             img.Unlock();
             img.Freeze();
             
-            foreach (Area a in filterList)
+            foreach (Area a in tmpFilterList)
             {
                 if (a != null)
                 {
@@ -90,12 +89,6 @@ namespace KinectDepthMatrix
             }
             
             return img;
-        }
-
-        public void ResetFilter()
-        {
-            filterList.Clear();
-            updateVisibilityMatrix();
         }
 
         public void AddToFilter(Area area)
@@ -169,6 +162,15 @@ namespace KinectDepthMatrix
             else
             {
                 return 0;
+            }
+        }
+
+        public void ResetFilter()
+        {
+            while (filterList.Count > 0)
+            {
+                Area item;
+                filterList.TryTake(out item);
             }
         }
     }
